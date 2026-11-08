@@ -11,9 +11,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract project
+      - name: Locate project (extract zip if present)
         shell: pwsh
-        run: Expand-Archive -Path Ganj-Library-Project.zip -DestinationPath . -Force
+        run: |
+          $zip = Get-ChildItem -Recurse -Filter "*.zip" -File | Select-Object -First 1
+          if ($zip) {
+            Write-Host "Extracting $($zip.FullName)"
+            Expand-Archive -Path $zip.FullName -DestinationPath extracted -Force
+          }
+          $cmake = Get-ChildItem -Recurse -Filter "CMakeLists.txt" -File | Select-Object -First 1
+          if (-not $cmake) {
+            Get-ChildItem -Recurse | Select-Object -First 60 FullName
+            Write-Error "CMakeLists.txt not found in the repository"
+            exit 1
+          }
+          Write-Host "Project folder: $($cmake.DirectoryName)"
+          "PROJECT_DIR=$($cmake.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -26,14 +39,14 @@ jobs:
 
       - name: Configure and build
         shell: pwsh
-        working-directory: Ganj
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
           cmake --build build --config Release
 
       - name: Collect files (Qt DLLs + VC++ runtime)
         shell: pwsh
-        working-directory: Ganj
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           New-Item -ItemType Directory -Force deploy | Out-Null
           Copy-Item build/Release/Ganj.exe deploy/
@@ -43,7 +56,7 @@ jobs:
 
       - name: Build installer
         shell: pwsh
-        working-directory: Ganj
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           choco install innosetup -y --no-progress
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\ganj.iss
@@ -51,4 +64,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: GanjLibrarySetup
-          path: Ganj/dist/GanjLibrarySetup.exe
+          path: ${{ env.PROJECT_DIR }}/dist/GanjLibrarySetup.exe
