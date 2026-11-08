@@ -1,0 +1,54 @@
+name: Build Windows installer
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract project
+        shell: pwsh
+        run: Expand-Archive -Path Ganj-Library-Project.zip -DestinationPath . -Force
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.5.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          cache: true
+
+      - name: Configure and build
+        shell: pwsh
+        working-directory: Ganj
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+          cmake --build build --config Release
+
+      - name: Collect files (Qt DLLs + VC++ runtime)
+        shell: pwsh
+        working-directory: Ganj
+        run: |
+          New-Item -ItemType Directory -Force deploy | Out-Null
+          Copy-Item build/Release/Ganj.exe deploy/
+          windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw deploy/Ganj.exe
+          if (Test-Path resources/fonts) { Copy-Item resources/fonts deploy/fonts -Recurse }
+          Invoke-WebRequest https://aka.ms/vs/17/release/vc_redist.x64.exe -OutFile deploy/vc_redist.x64.exe
+
+      - name: Build installer
+        shell: pwsh
+        working-directory: Ganj
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\ganj.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GanjLibrarySetup
+          path: Ganj/dist/GanjLibrarySetup.exe
