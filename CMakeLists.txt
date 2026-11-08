@@ -10,8 +10,7 @@ if(MSVC)
     add_compile_options(/utf-8)   # Persian string literals in source files
 endif()
 
-# GuiPrivate is used only for QZipReader (reading .xlsx files, which are zip archives)
-find_package(Qt6 REQUIRED COMPONENTS Widgets Sql GuiPrivate)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Sql)
 
 file(GLOB_RECURSE GANJ_SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.h)
 
@@ -22,4 +21,4 @@ endif()
 
 qt_add_executable(Ganj WIN32 ${GANJ_SOURCES} ${GANJ_RESOURCES})
 target_include_directories(Ganj PRIVATE src)
-target_link_libraries(Ganj PRIVATE Qt6::Widgets Qt6::Sql Qt6::GuiPrivate)
+target_link_libraries(Ganj PRIVATE Qt6::Widgets Qt6::Sql)
