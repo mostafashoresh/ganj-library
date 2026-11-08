@@ -5,10 +5,9 @@
 #include <QStringDecoder>
 #include <QVector>
 #include <QXmlStreamReader>
-#include <private/qzipreader_p.h>
 
 #include <algorithm>
-
+#include "util/QZipReader.h"
 #include "util/TextUtil.h"
 
 namespace {
